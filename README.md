@@ -33,23 +33,7 @@ src/main/java/com/ontour/
 
 ## Base de datos
 
-El script SQL para crear la base de datos y la tabla utilizada es el siguiente:
-
-```sql
-CREATE DATABASE IF NOT EXISTS ontour;
-USE ontour;
-
-CREATE TABLE shows (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre_venue VARCHAR(150) NOT NULL,
-    ciudad VARCHAR(100) NOT NULL,
-    pais VARCHAR(100) NOT NULL,
-    fecha DATE NOT NULL,
-    hora_llegada TIME,
-    hora_soundcheck TIME,
-    hora_show TIME
-);
-```
+El script completo de la base de datos (creación de tablas, datos de prueba y consultas SQL de ejemplo) se encuentra en `database/on-tour-database.sql`.
 
 ## Cómo ejecutar el proyecto
 

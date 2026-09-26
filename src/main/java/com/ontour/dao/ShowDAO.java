@@ -30,15 +30,21 @@ public class ShowDAO {
             stmt.executeUpdate();
             System.out.println("Show registrado con éxito.");
 
+        } catch (SQLIntegrityConstraintViolationException e) {
+            if (e.getErrorCode() == 1062) {
+                System.out.println("Ya existe un registro con estos mismos datos. Verificá que no sea un duplicado.");
+            } else {
+                System.out.println("El ID ingresado no corresponde a un registro existente. Revisá la lista de opciones mostrada arriba.");
+            }
         } catch (SQLException e) {
             System.out.println("Error al registrar el show: " + e.getMessage());
         }
     }
 
-    // Consultar todos los shows
+    // Consultar todos los shows no eliminados
     public List<Show> consultarTodos() {
         List<Show> shows = new ArrayList<>();
-        String sql = "SELECT * FROM shows ORDER BY fecha";
+        String sql = "SELECT * FROM shows WHERE eliminado = FALSE ORDER BY fecha";
 
         try (Connection conexion = ConexionBD.obtenerConexion();
         PreparedStatement stmt = conexion.prepareStatement(sql);
@@ -48,6 +54,24 @@ public class ShowDAO {
             }
         } catch (SQLException e) {
             System.out.println("Error al consultar los shows: " + e.getMessage());
+        }
+
+        return shows;
+    }
+
+    // Consultar los shows eliminados (borrado logico)
+    public List<Show> consultarEliminados() {
+        List<Show> shows = new ArrayList<>();
+        String sql = "SELECT * FROM shows WHERE eliminado = TRUE ORDER BY fecha";
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+        PreparedStatement stmt = conexion.prepareStatement(sql);
+        ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                shows.add(mapearShow(rs));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al consultar los shows eliminados: " + e.getMessage());
         }
 
         return shows;
@@ -77,14 +101,20 @@ public class ShowDAO {
                 System.out.println("No se encontró un show con ese ID.");
             }
 
+        } catch (SQLIntegrityConstraintViolationException e) {
+            if (e.getErrorCode() == 1062) {
+                System.out.println("Ya existe un registro con estos mismos datos. Verificá que no sea un duplicado.");
+            } else {
+                System.out.println("El ID ingresado no corresponde a un registro existente. Revisá la lista de opciones mostrada arriba.");
+            }
         } catch (SQLException e) {
             System.out.println("Error al modificar el show: " + e.getMessage());
         }
     }
 
-    // Eliminar un show por ID
+    // Eliminar (borrado logico) un show por ID
     public void eliminar(int id) {
-        String sql = "DELETE FROM shows WHERE id = ?";
+        String sql = "UPDATE shows SET eliminado = TRUE WHERE id = ?";
 
         try (Connection conexion = ConexionBD.obtenerConexion();
              PreparedStatement stmt = conexion.prepareStatement(sql)) {
@@ -99,7 +129,43 @@ public class ShowDAO {
             }
 
         } catch (SQLException e) {
-            System.out.println("Error al modificar el show: " + e.getMessage());
+            System.out.println("Error al eliminar el show: " + e.getMessage());
+        }
+    }
+
+    // Restaurar un show eliminado por ID
+    public void restaurar(int id) {
+        String sql = "UPDATE shows SET eliminado = FALSE WHERE id = ?";
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement stmt = conexion.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            int filasAfectadas = stmt.executeUpdate();
+
+            if (filasAfectadas > 0) {
+                System.out.println("Show restaurado con éxito.");
+            } else {
+                System.out.println("No se encontró un show eliminado con ese ID.");
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error al restaurar el show: " + e.getMessage());
+        }
+    }
+
+    // Muestra un resumen liviano (id + venue) para elegir un show al completar otro formulario
+    public void mostrarResumen() {
+        String sql = "SELECT id, nombre_venue FROM shows WHERE eliminado = FALSE ORDER BY id";
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement stmt = conexion.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                System.out.println("ID: " + rs.getInt("id") + " | Venue: " + rs.getString("nombre_venue"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al consultar el resumen de shows: " + e.getMessage());
         }
     }
 
