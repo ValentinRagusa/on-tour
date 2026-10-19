@@ -8,8 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class IntegranteDAO {
+public class IntegranteDAO implements CrudDAO<Integrante> {
     // Insertar nuevo integrante
+    @Override
     public void insertar(Integrante integrante) {
         String sql = "INSERT INTO integrantes (nombre, documento_identidad, numero_pasajero_frecuente) " +
                 "VALUES (?, ?, ?)";
@@ -36,6 +37,7 @@ public class IntegranteDAO {
     }
 
     // Consultar todos los integrantes
+    @Override
     public List<Integrante> consultarTodos() {
         List<Integrante> integrantes = new ArrayList<>();
         String sql = "SELECT * FROM integrantes ORDER BY id";
@@ -54,6 +56,7 @@ public class IntegranteDAO {
     }
 
     // Modificar un integrante existente
+    @Override
     public void modificar(Integrante integrante) {
         String sql = "UPDATE integrantes SET nombre = ?, documento_identidad = ?, numero_pasajero_frecuente = ? " +
                 "WHERE id = ?";
@@ -85,6 +88,7 @@ public class IntegranteDAO {
     }
 
     // Eliminar un integrante por ID
+    @Override
     public void eliminar(int id) {
         String sql = "DELETE FROM integrantes WHERE id = ?";
 
@@ -106,6 +110,7 @@ public class IntegranteDAO {
     }
 
     // Muestra un resumen liviano (id + nombre) para elegir un integrante al completar otro formulario
+    @Override
     public void mostrarResumen() {
         String sql = "SELECT id, nombre FROM integrantes ORDER BY id";
 

@@ -9,8 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class ContrariderDAO {
+public class ContrariderDAO implements CrudDAO<Contrarider> {
     // Insertar nuevo contrarider
+    @Override
     public void insertar(Contrarider contrarider) {
         String sql = "INSERT INTO contrariders (rider_id, version, fecha_carga, descripcion, disponibilidad) " +
                 "VALUES (?, ?, ?, ?, ?)";
@@ -39,6 +40,7 @@ public class ContrariderDAO {
     }
 
     // Consultar todos los contrariders
+    @Override
     public List<Contrarider> consultarTodos() {
         List<Contrarider> contrariders = new ArrayList<>();
         String sql = "SELECT * FROM contrariders ORDER BY id";
@@ -57,6 +59,7 @@ public class ContrariderDAO {
     }
 
     // Modificar un contrarider existente
+    @Override
     public void modificar(Contrarider contrarider) {
         String sql = "UPDATE contrariders SET rider_id = ?, version = ?, fecha_carga = ?, descripcion = ?, " +
                 "disponibilidad = ? WHERE id = ?";
@@ -90,6 +93,7 @@ public class ContrariderDAO {
     }
 
     // Eliminar un contrarider por ID
+    @Override
     public void eliminar(int id) {
         String sql = "DELETE FROM contrariders WHERE id = ?";
 
@@ -107,6 +111,23 @@ public class ContrariderDAO {
 
         } catch (SQLException e) {
             System.out.println("Error al eliminar el contrarider: " + e.getMessage());
+        }
+    }
+
+    // Muestra un resumen liviano (id + rider + version) para elegir un contrarider al completar otro formulario
+    @Override
+    public void mostrarResumen() {
+        String sql = "SELECT id, rider_id, version FROM contrariders ORDER BY id";
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement stmt = conexion.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                System.out.println("ID: " + rs.getInt("id") + " | Rider ID: " + rs.getInt("rider_id") +
+                        " | Versión: " + rs.getInt("version"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al consultar el resumen de contrariders: " + e.getMessage());
         }
     }
 

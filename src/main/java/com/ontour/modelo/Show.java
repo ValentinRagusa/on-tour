@@ -3,7 +3,7 @@ package com.ontour.modelo;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public class Show {
+public class Show implements Comparable<Show> {
 
     private int id;
     private String nombreVenue;
@@ -52,6 +52,13 @@ public class Show {
     public void setHoraLlegada(LocalTime horaLlegada) { this.horaLlegada = horaLlegada; }
     public void setHoraSoundcheck(LocalTime horaSoundcheck) { this.horaSoundcheck = horaSoundcheck; }
     public void setHoraShow(LocalTime horaShow) { this.horaShow = horaShow; }
+
+    // Orden natural de los shows: por fecha, del mas proximo al mas lejano.
+    // Lo usa Collections.sort() cuando se ordena una List<Show>.
+    @Override
+    public int compareTo(Show otro) {
+        return this.fecha.compareTo(otro.fecha);
+    }
 
     @Override
     public String toString() {

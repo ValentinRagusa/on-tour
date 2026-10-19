@@ -8,8 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class HabitacionDAO {
+public class HabitacionDAO implements CrudDAO<Habitacion> {
     // Insertar nueva habitacion
+    @Override
     public void insertar(Habitacion habitacion) {
         String sql = "INSERT INTO habitaciones (show_id, tipo, numero_habitacion) VALUES (?, ?, ?)";
 
@@ -35,6 +36,7 @@ public class HabitacionDAO {
     }
 
     // Consultar todas las habitaciones
+    @Override
     public List<Habitacion> consultarTodos() {
         List<Habitacion> habitaciones = new ArrayList<>();
         String sql = "SELECT * FROM habitaciones ORDER BY id";
@@ -53,6 +55,7 @@ public class HabitacionDAO {
     }
 
     // Modificar una habitacion existente
+    @Override
     public void modificar(Habitacion habitacion) {
         String sql = "UPDATE habitaciones SET show_id = ?, tipo = ?, numero_habitacion = ? WHERE id = ?";
 
@@ -83,6 +86,7 @@ public class HabitacionDAO {
     }
 
     // Eliminar una habitacion por ID
+    @Override
     public void eliminar(int id) {
         String sql = "DELETE FROM habitaciones WHERE id = ?";
 
@@ -104,6 +108,7 @@ public class HabitacionDAO {
     }
 
     // Muestra un resumen liviano (id + tipo) para elegir una habitación al completar otro formulario
+    @Override
     public void mostrarResumen() {
         String sql = "SELECT id, tipo, numero_habitacion FROM habitaciones ORDER BY id";
 

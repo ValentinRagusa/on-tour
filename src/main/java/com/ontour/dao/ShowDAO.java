@@ -10,8 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class ShowDAO {
+public class ShowDAO implements CrudDAO<Show> {
     // Insertar nuevo show
+    @Override
     public void insertar(Show show) {
         String sql = "INSERT INTO shows (nombre_venue, ciudad, pais, fecha, hora_llegada, hora_soundcheck, hora_show) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -42,9 +43,10 @@ public class ShowDAO {
     }
 
     // Consultar todos los shows no eliminados
+    @Override
     public List<Show> consultarTodos() {
         List<Show> shows = new ArrayList<>();
-        String sql = "SELECT * FROM shows WHERE eliminado = FALSE ORDER BY fecha";
+        String sql = "SELECT * FROM shows WHERE eliminado = FALSE ORDER BY id";
 
         try (Connection conexion = ConexionBD.obtenerConexion();
         PreparedStatement stmt = conexion.prepareStatement(sql);
@@ -78,6 +80,7 @@ public class ShowDAO {
     }
 
     // Modificar un show existente
+    @Override
     public void modificar(Show show) {
         String sql = "UPDATE shows SET nombre_venue = ?, ciudad = ?, pais = ?, fecha = ?, " +
                 "hora_llegada = ?, hora_soundcheck = ?, hora_show = ? WHERE id = ?";
@@ -113,6 +116,7 @@ public class ShowDAO {
     }
 
     // Eliminar (borrado logico) un show por ID
+    @Override
     public void eliminar(int id) {
         String sql = "UPDATE shows SET eliminado = TRUE WHERE id = ?";
 
@@ -155,6 +159,7 @@ public class ShowDAO {
     }
 
     // Muestra un resumen liviano (id + venue) para elegir un show al completar otro formulario
+    @Override
     public void mostrarResumen() {
         String sql = "SELECT id, nombre_venue FROM shows WHERE eliminado = FALSE ORDER BY id";
 
@@ -181,7 +186,7 @@ public class ShowDAO {
         Time llegadaSql = rs.getTime("hora_llegada");
         LocalTime horaLlegada = llegadaSql != null ? llegadaSql.toLocalTime() : null;
 
-        Time soundcheckSql = rs.getTime("hora_llegada");
+        Time soundcheckSql = rs.getTime("hora_soundcheck");
         LocalTime horaSoundcheck = soundcheckSql != null ? soundcheckSql.toLocalTime() : null;
 
         Time showSql = rs.getTime("hora_show");

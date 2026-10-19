@@ -9,8 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class DocumentoIntegranteDAO {
+public class DocumentoIntegranteDAO implements CrudDAO<DocumentoIntegrante> {
     // Insertar nuevo documento
+    @Override
     public void insertar(DocumentoIntegrante documento) {
         String sql = "INSERT INTO documentos_integrante (integrante_id, tipo_documento, archivo, fecha_carga) " +
                 "VALUES (?, ?, ?, ?)";
@@ -38,6 +39,7 @@ public class DocumentoIntegranteDAO {
     }
 
     // Consultar todos los documentos
+    @Override
     public List<DocumentoIntegrante> consultarTodos() {
         List<DocumentoIntegrante> documentos = new ArrayList<>();
         String sql = "SELECT * FROM documentos_integrante ORDER BY id";
@@ -56,6 +58,7 @@ public class DocumentoIntegranteDAO {
     }
 
     // Modificar un documento existente
+    @Override
     public void modificar(DocumentoIntegrante documento) {
         String sql = "UPDATE documentos_integrante SET integrante_id = ?, tipo_documento = ?, archivo = ?, " +
                 "fecha_carga = ? WHERE id = ?";
@@ -88,6 +91,7 @@ public class DocumentoIntegranteDAO {
     }
 
     // Eliminar un documento por ID
+    @Override
     public void eliminar(int id) {
         String sql = "DELETE FROM documentos_integrante WHERE id = ?";
 
@@ -105,6 +109,23 @@ public class DocumentoIntegranteDAO {
 
         } catch (SQLException e) {
             System.out.println("Error al eliminar el documento: " + e.getMessage());
+        }
+    }
+
+    // Muestra un resumen liviano (id + integrante + tipo) para elegir un documento al completar otro formulario
+    @Override
+    public void mostrarResumen() {
+        String sql = "SELECT id, integrante_id, tipo_documento FROM documentos_integrante ORDER BY id";
+
+        try (Connection conexion = ConexionBD.obtenerConexion();
+             PreparedStatement stmt = conexion.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                System.out.println("ID: " + rs.getInt("id") + " | Integrante ID: " + rs.getInt("integrante_id") +
+                        " | Tipo: " + rs.getString("tipo_documento"));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al consultar el resumen de documentos: " + e.getMessage());
         }
     }
 

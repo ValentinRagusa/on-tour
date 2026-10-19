@@ -8,8 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Data Acces Object class
-public class ProveedorDAO {
+public class ProveedorDAO implements CrudDAO<Proveedor> {
     // Insertar nuevo proveedor
+    @Override
     public void insertar(Proveedor proveedor) {
         String sql = "INSERT INTO proveedores (nombre, tipo, contacto) VALUES (?, ?, ?)";
 
@@ -35,6 +36,7 @@ public class ProveedorDAO {
     }
 
     // Consultar todos los proveedores
+    @Override
     public List<Proveedor> consultarTodos() {
         List<Proveedor> proveedores = new ArrayList<>();
         String sql = "SELECT * FROM proveedores ORDER BY id";
@@ -53,6 +55,7 @@ public class ProveedorDAO {
     }
 
     // Modificar un proveedor existente
+    @Override
     public void modificar(Proveedor proveedor) {
         String sql = "UPDATE proveedores SET nombre = ?, tipo = ?, contacto = ? WHERE id = ?";
 
@@ -83,6 +86,7 @@ public class ProveedorDAO {
     }
 
     // Eliminar un proveedor por ID
+    @Override
     public void eliminar(int id) {
         String sql = "DELETE FROM proveedores WHERE id = ?";
 
@@ -104,6 +108,7 @@ public class ProveedorDAO {
     }
 
     // Muestra un resumen liviano (id + nombre) para elegir un proveedor al completar otro formulario
+    @Override
     public void mostrarResumen() {
         String sql = "SELECT id, nombre FROM proveedores ORDER BY id";
 

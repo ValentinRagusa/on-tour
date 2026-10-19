@@ -1,12 +1,16 @@
 package com.ontour;
 
 import com.ontour.dao.*;
+import com.ontour.excepcion.OnTourException;
 import com.ontour.modelo.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 
@@ -97,7 +101,9 @@ public class Main {
             System.out.println("4. Eliminar show");
             System.out.println("5. Ver shows eliminados");
             System.out.println("6. Restaurar show");
-            System.out.println("7. Volver al menú principal");
+            System.out.println("7. Ver shows ordenados por fecha");
+            System.out.println("8. Buscar show por venue o ciudad");
+            System.out.println("9. Volver al menú principal");
             opcion = leerEntero("Elegí una opción: ");
 
             switch (opcion) {
@@ -107,10 +113,12 @@ public class Main {
                 case 4 -> eliminarShow();
                 case 5 -> consultarShowsEliminados();
                 case 6 -> restaurarShow();
-                case 7 -> System.out.println("Volviendo al menú principal...");
+                case 7 -> consultarShowsOrdenados();
+                case 8 -> buscarShows();
+                case 9 -> System.out.println("Volviendo al menú principal...");
                 default -> System.out.println("Opción inválida, intentá de nuevo.");
             }
-        } while (opcion != 7);
+        } while (opcion != 9);
     }
 
     private static void registrarShow() {
@@ -184,6 +192,54 @@ public class Main {
         showDAO.restaurar(id);
     }
 
+    // Ordena la lista en memoria con Collections.sort(), que usa el compareTo() definido en Show
+    private static void consultarShowsOrdenados() {
+        System.out.println("\n--- Shows ordenados por fecha (del más próximo al más lejano) ---");
+        List<Show> shows = showDAO.consultarTodos();
+
+        if (shows.isEmpty()) {
+            System.out.println("No hay shows registrados.");
+            return;
+        }
+
+        Collections.sort(shows);
+        for (Show s : shows) {
+            System.out.println(s);
+        }
+    }
+
+    // Busqueda lineal en memoria: recorre la lista y se queda con los shows
+    // cuyo venue o ciudad contengan el texto ingresado (sin distinguir mayusculas/minusculas)
+    private static void buscarShows() {
+        System.out.println("\n--- Buscar show por venue o ciudad ---");
+        String texto = leerTexto("Texto a buscar: ").trim().toLowerCase();
+
+        if (texto.isEmpty()) {
+            System.out.println("Tenés que ingresar al menos un carácter para buscar.");
+            return;
+        }
+
+        List<Show> shows = showDAO.consultarTodos();
+        List<Show> resultados = new ArrayList<>();
+
+        for (Show s : shows) {
+            boolean coincideVenue = s.getNombreVenue().toLowerCase().contains(texto);
+            boolean coincideCiudad = s.getCiudad().toLowerCase().contains(texto);
+            if (coincideVenue || coincideCiudad) {
+                resultados.add(s);
+            }
+        }
+
+        if (resultados.isEmpty()) {
+            System.out.println("No se encontraron shows que coincidan con \"" + texto + "\".");
+        } else {
+            System.out.println("Se encontraron " + resultados.size() + " show(s):");
+            for (Show s : resultados) {
+                System.out.println(s);
+            }
+        }
+    }
+
     // ============================================================
     // RIDERS
     // ============================================================
@@ -225,8 +281,18 @@ public class Main {
         System.out.println("Estado del rider:");
         String estado = elegirOpcion(ESTADOS_RIDER, VALORES_ESTADOS_RIDER);
 
-        Rider nuevoRider = new Rider(showId, tipo, fechaCarga, estado);
+        Rider nuevoRider = crearRider(0, showId, tipo, fechaCarga, estado);
         riderDAO.insertar(nuevoRider);
+    }
+
+    // Crea la subclase de Rider que corresponde segun el tipo elegido por el usuario.
+    // Rider es abstracta, asi que nunca se instancia directamente.
+    private static Rider crearRider(int id, int showId, String tipo, LocalDate fechaCarga, String estado) {
+        return switch (tipo) {
+            case "tecnico" -> new RiderTecnico(id, showId, fechaCarga, estado);
+            case "hospitality" -> new RiderHospitality(id, showId, fechaCarga, estado);
+            default -> throw new OnTourException("Tipo de rider desconocido: " + tipo);
+        };
     }
 
     private static void consultarRiders() {
@@ -236,8 +302,11 @@ public class Main {
         if (riders.isEmpty()) {
             System.out.println("No hay riders registrados.");
         } else {
+            // Polimorfismo dinamico: la variable r es de tipo Rider, pero describirResponsable()
+            // ejecuta la version de RiderTecnico o RiderHospitality segun el tipo real del objeto.
             for (Rider r : riders) {
                 System.out.println(r);
+                System.out.println("   Responsable: " + r.describirResponsable());
             }
         }
     }
@@ -259,7 +328,7 @@ public class Main {
         System.out.println("Nuevo estado del rider:");
         String estado = elegirOpcion(ESTADOS_RIDER, VALORES_ESTADOS_RIDER);
 
-        Rider riderModificado = new Rider(id, showId, tipo, fechaCarga, estado);
+        Rider riderModificado = crearRider(id, showId, tipo, fechaCarga, estado);
         riderDAO.modificar(riderModificado);
     }
 
@@ -518,7 +587,8 @@ public class Main {
             System.out.println("2. Consultar viáticos");
             System.out.println("3. Modificar viático");
             System.out.println("4. Eliminar viático");
-            System.out.println("5. Volver al menú principal");
+            System.out.println("5. Marcar viático como pagado");
+            System.out.println("6. Volver al menú principal");
             opcion = leerEntero("Elegí una opción: ");
 
             switch (opcion) {
@@ -526,10 +596,11 @@ public class Main {
                 case 2 -> consultarViaticos();
                 case 3 -> modificarViatico();
                 case 4 -> eliminarViatico();
-                case 5 -> System.out.println("Volviendo al menú principal...");
+                case 5 -> marcarViaticoComoPagado();
+                case 6 -> System.out.println("Volviendo al menú principal...");
                 default -> System.out.println("Opción inválida, intentá de nuevo.");
             }
-        } while (opcion != 5);
+        } while (opcion != 6);
     }
 
     private static void registrarViatico() {
@@ -590,6 +661,20 @@ public class Main {
         consultarViaticos();
         int id = leerEntero("\nIngresá el ID del viático a eliminar: ");
         viaticoDAO.eliminar(id);
+    }
+
+    private static void marcarViaticoComoPagado() {
+        System.out.println("\n--- Marcar viático como pagado ---");
+        viaticoDAO.mostrarResumen();
+        int id = leerEntero("\nIngresá el ID del viático a marcar como pagado: ");
+
+        // Si el viatico ya estaba pagado, el DAO lanza OnTourException.
+        // La capturamos aca para mostrar el mensaje sin que se caiga el programa.
+        try {
+            viaticoDAO.marcarComoPagado(id);
+        } catch (OnTourException e) {
+            System.out.println("Atención: " + e.getMessage());
+        }
     }
 
     // ============================================================
@@ -895,7 +980,7 @@ public class Main {
         while (true) {
             try {
                 return LocalDate.parse(scanner.nextLine(), formatoFecha);
-            } catch (Exception e) {
+            } catch (DateTimeParseException e) {
                 System.out.print("Formato inválido, usá dd/MM/yyyy: ");
             }
         }
@@ -906,7 +991,7 @@ public class Main {
         while (true) {
             try {
                 return LocalTime.parse(scanner.nextLine(), formatoHora);
-            } catch (Exception e) {
+            } catch (DateTimeParseException e) {
                 System.out.print("Formato inválido, usá HH:mm: ");
             }
         }
