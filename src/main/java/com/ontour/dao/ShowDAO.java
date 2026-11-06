@@ -1,6 +1,7 @@
 package com.ontour.dao;
 
 import com.ontour.conexion.ConexionBD;
+import com.ontour.excepcion.OnTourException;
 import com.ontour.modelo.Show;
 
 import java.sql.*;
@@ -14,6 +15,7 @@ public class ShowDAO implements CrudDAO<Show> {
     // Insertar nuevo show
     @Override
     public void insertar(Show show) {
+        validarHorarios(show);
         String sql = "INSERT INTO shows (nombre_venue, ciudad, pais, fecha, hora_llegada, hora_soundcheck, hora_show) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
@@ -82,6 +84,7 @@ public class ShowDAO implements CrudDAO<Show> {
     // Modificar un show existente
     @Override
     public void modificar(Show show) {
+        validarHorarios(show);
         String sql = "UPDATE shows SET nombre_venue = ?, ciudad = ?, pais = ?, fecha = ?, " +
                 "hora_llegada = ?, hora_soundcheck = ?, hora_show = ? WHERE id = ?";
 
@@ -171,6 +174,16 @@ public class ShowDAO implements CrudDAO<Show> {
             }
         } catch (SQLException e) {
             System.out.println("Error al consultar el resumen de shows: " + e.getMessage());
+        }
+    }
+
+    // Regla de negocio: el soundcheck tiene que ser antes del show.
+    // Si no se cumple, lanza OnTourException y no se guarda nada en la base.
+    private void validarHorarios(Show show) {
+        if (show.getHoraSoundcheck() != null && show.getHoraShow() != null
+                && !show.getHoraSoundcheck().isBefore(show.getHoraShow())) {
+            throw new OnTourException("La hora de soundcheck (" + show.getHoraSoundcheck()
+                    + ") tiene que ser anterior a la hora del show (" + show.getHoraShow() + ").");
         }
     }
 

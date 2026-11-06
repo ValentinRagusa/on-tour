@@ -1,10 +1,13 @@
 package com.ontour;
 
+import com.ontour.conexion.ConexionBD;
 import com.ontour.dao.*;
 import com.ontour.excepcion.OnTourException;
 import com.ontour.modelo.*;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -20,16 +23,35 @@ public class Main {
     private static final DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter formatoHora = DateTimeFormatter.ofPattern("HH:mm");
 
+    // ShowDAO y ViaticoDAO quedan con su tipo concreto porque Main usa metodos que no estan
+    // en la interfaz (consultarEliminados, restaurar, marcarComoPagado).
     private static final ShowDAO showDAO = new ShowDAO();
-    private static final RiderDAO riderDAO = new RiderDAO();
-    private static final ContrariderDAO contrariderDAO = new ContrariderDAO();
-    private static final ProveedorDAO proveedorDAO = new ProveedorDAO();
-    private static final IntegranteDAO integranteDAO = new IntegranteDAO();
     private static final ViaticoDAO viaticoDAO = new ViaticoDAO();
-    private static final HabitacionDAO habitacionDAO = new HabitacionDAO();
-    private static final DocumentoIntegranteDAO documentoIntegranteDAO = new DocumentoIntegranteDAO();
+
+    // Estos solo se usan para operaciones CRUD, asi que se declaran con el tipo de la interfaz.
+    // A Main no le importa que clase concreta hay detras, solo que cumpla con CrudDAO.
+    private static final CrudDAO<Rider> riderDAO = new RiderDAO();
+    private static final CrudDAO<Contrarider> contrariderDAO = new ContrariderDAO();
+    private static final CrudDAO<Proveedor> proveedorDAO = new ProveedorDAO();
+    private static final CrudDAO<Integrante> integranteDAO = new IntegranteDAO();
+    private static final CrudDAO<Habitacion> habitacionDAO = new HabitacionDAO();
+    private static final CrudDAO<DocumentoIntegrante> documentoIntegranteDAO = new DocumentoIntegranteDAO();
+
+    // DAOs de las tablas de union (no implementan CrudDAO)
     private static final ShowProveedorDAO showProveedorDAO = new ShowProveedorDAO();
     private static final HabitacionIntegranteDAO habitacionIntegranteDAO = new HabitacionIntegranteDAO();
+
+    // ===== Arreglos para el Resumen general =====
+    // Son 8 entidades fijas, por eso alcanza con un arreglo comun en vez de un ArrayList.
+    // Los dos arreglos van en paralelo: NOMBRES_ENTIDADES[i] es el nombre del DAO que esta en DAOS[i].
+    private static final CrudDAO<?>[] DAOS = {
+            showDAO, riderDAO, contrariderDAO, proveedorDAO,
+            integranteDAO, viaticoDAO, habitacionDAO, documentoIntegranteDAO
+    };
+    private static final String[] NOMBRES_ENTIDADES = {
+            "Shows", "Riders", "Contrariders", "Proveedores",
+            "Integrantes", "Viáticos", "Habitaciones", "Documentos de integrantes"
+    };
 
     // ===== Opciones de los campos ENUM =====
     private static final String[] TIPOS_RIDER = {"Técnico", "Hospitality"};
@@ -48,6 +70,15 @@ public class Main {
     private static final String[] VALORES_TIPOS_HABITACION = {"individual", "doble", "triple"};
 
     public static void main(String[] args) {
+        // Antes de mostrar el menu se prueba la conexion, asi si falta db.properties
+        // o MySQL no esta corriendo el usuario se entera de entrada y no a mitad de una carga
+        try (Connection conexion = ConexionBD.obtenerConexion()) {
+            System.out.println("Conexión con la base de datos establecida.");
+        } catch (SQLException | OnTourException e) {
+            System.out.println("No se pudo conectar con la base de datos: " + e.getMessage());
+            return;
+        }
+
         int opcion;
 
         do {
@@ -65,11 +96,12 @@ public class Main {
                 case 8 -> menuDocumentos();
                 case 9 -> menuAsignarProveedorAShow();
                 case 10 -> menuAsignarIntegranteAHabitacion();
-                case 11 -> System.out.println("Saliendo del sistema...");
+                case 11 -> mostrarResumenGeneral();
+                case 12 -> System.out.println("Saliendo del sistema...");
                 default -> System.out.println("Opción inválida, intentá de nuevo.");
             }
 
-        } while (opcion != 11);
+        } while (opcion != 12);
     }
 
     private static void mostrarMenuPrincipal() {
@@ -84,7 +116,33 @@ public class Main {
         System.out.println("8. Documentos de integrantes");
         System.out.println("9. Asignar proveedor a show");
         System.out.println("10. Asignar integrante a habitación");
-        System.out.println("11. Salir");
+        System.out.println("11. Resumen general");
+        System.out.println("12. Salir");
+    }
+
+    // Recorre los dos arreglos con el mismo indice. Cada DAO se usa a traves de la interfaz,
+    // y consultarTodos() ejecuta la implementacion del DAO que haya en esa posicion.
+    private static void mostrarResumenGeneral() {
+        System.out.println("\n===== Resumen general =====");
+        for (int i = 0; i < DAOS.length; i++) {
+            int cantidad = DAOS[i].consultarTodos().size();
+            System.out.println(NOMBRES_ENTIDADES[i] + ": " + cantidad);
+        }
+    }
+
+    // Metodo generico: sirve para listar cualquier entidad cuyo DAO implemente CrudDAO.
+    // Reemplaza a los consultarRiders(), consultarProveedores(), etc. que eran todos iguales.
+    private static <T> void listar(CrudDAO<T> dao, String titulo) {
+        System.out.println("\n--- " + titulo + " ---");
+        List<T> registros = dao.consultarTodos();
+
+        if (registros.isEmpty()) {
+            System.out.println("No hay registros cargados.");
+        } else {
+            for (T registro : registros) {
+                System.out.println(registro);
+            }
+        }
     }
 
     // ============================================================
@@ -132,7 +190,13 @@ public class Main {
         LocalTime horaShow = leerHora("Hora del show (HH:mm): ");
 
         Show nuevoShow = new Show(venue, ciudad, pais, fecha, horaLlegada, horaSoundcheck, horaShow);
-        showDAO.insertar(nuevoShow);
+
+        // Si el soundcheck no es anterior al show, el DAO lanza OnTourException
+        try {
+            showDAO.insertar(nuevoShow);
+        } catch (OnTourException e) {
+            System.out.println("Atención: " + e.getMessage());
+        }
     }
 
     private static void consultarShows() {
@@ -162,7 +226,11 @@ public class Main {
         LocalTime horaShow = leerHora("Nueva hora del show (HH:mm): ");
 
         Show showModificado = new Show(id, venue, ciudad, pais, fecha, horaLlegada, horaSoundcheck, horaShow);
-        showDAO.modificar(showModificado);
+        try {
+            showDAO.modificar(showModificado);
+        } catch (OnTourException e) {
+            System.out.println("Atención: " + e.getMessage());
+        }
     }
 
     private static void eliminarShow() {
@@ -257,7 +325,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarRider();
-                case 2 -> consultarRiders();
+                case 2 -> listar(riderDAO, "Listado de riders");
                 case 3 -> modificarRider();
                 case 4 -> eliminarRider();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -281,39 +349,13 @@ public class Main {
         System.out.println("Estado del rider:");
         String estado = elegirOpcion(ESTADOS_RIDER, VALORES_ESTADOS_RIDER);
 
-        Rider nuevoRider = crearRider(0, showId, tipo, fechaCarga, estado);
+        Rider nuevoRider = RiderFactory.crear(0, showId, tipo, fechaCarga, estado);
         riderDAO.insertar(nuevoRider);
-    }
-
-    // Crea la subclase de Rider que corresponde segun el tipo elegido por el usuario.
-    // Rider es abstracta, asi que nunca se instancia directamente.
-    private static Rider crearRider(int id, int showId, String tipo, LocalDate fechaCarga, String estado) {
-        return switch (tipo) {
-            case "tecnico" -> new RiderTecnico(id, showId, fechaCarga, estado);
-            case "hospitality" -> new RiderHospitality(id, showId, fechaCarga, estado);
-            default -> throw new OnTourException("Tipo de rider desconocido: " + tipo);
-        };
-    }
-
-    private static void consultarRiders() {
-        System.out.println("\n--- Listado de riders ---");
-        List<Rider> riders = riderDAO.consultarTodos();
-
-        if (riders.isEmpty()) {
-            System.out.println("No hay riders registrados.");
-        } else {
-            // Polimorfismo dinamico: la variable r es de tipo Rider, pero describirResponsable()
-            // ejecuta la version de RiderTecnico o RiderHospitality segun el tipo real del objeto.
-            for (Rider r : riders) {
-                System.out.println(r);
-                System.out.println("   Responsable: " + r.describirResponsable());
-            }
-        }
     }
 
     private static void modificarRider() {
         System.out.println("\n--- Modificar rider ---");
-        consultarRiders();
+        listar(riderDAO, "Listado de riders");
         int id = leerEntero("\nIngresá el ID del rider a modificar: ");
 
         System.out.println("Shows disponibles:");
@@ -328,13 +370,13 @@ public class Main {
         System.out.println("Nuevo estado del rider:");
         String estado = elegirOpcion(ESTADOS_RIDER, VALORES_ESTADOS_RIDER);
 
-        Rider riderModificado = crearRider(id, showId, tipo, fechaCarga, estado);
+        Rider riderModificado = RiderFactory.crear(id, showId, tipo, fechaCarga, estado);
         riderDAO.modificar(riderModificado);
     }
 
     private static void eliminarRider() {
         System.out.println("\n--- Eliminar rider ---");
-        consultarRiders();
+        listar(riderDAO, "Listado de riders");
         int id = leerEntero("\nIngresá el ID del rider a eliminar: ");
         riderDAO.eliminar(id);
     }
@@ -356,7 +398,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarContrarider();
-                case 2 -> consultarContrariders();
+                case 2 -> listar(contrariderDAO, "Listado de contrariders");
                 case 3 -> modificarContrarider();
                 case 4 -> eliminarContrarider();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -383,22 +425,9 @@ public class Main {
         contrariderDAO.insertar(nuevoContrarider);
     }
 
-    private static void consultarContrariders() {
-        System.out.println("\n--- Listado de contrariders ---");
-        List<Contrarider> contrariders = contrariderDAO.consultarTodos();
-
-        if (contrariders.isEmpty()) {
-            System.out.println("No hay contrariders registrados.");
-        } else {
-            for (Contrarider c : contrariders) {
-                System.out.println(c);
-            }
-        }
-    }
-
     private static void modificarContrarider() {
         System.out.println("\n--- Modificar contrarider ---");
-        consultarContrariders();
+        listar(contrariderDAO, "Listado de contrariders");
         int id = leerEntero("\nIngresá el ID del contrarider a modificar: ");
 
         System.out.println("Riders disponibles:");
@@ -418,7 +447,7 @@ public class Main {
 
     private static void eliminarContrarider() {
         System.out.println("\n--- Eliminar contrarider ---");
-        consultarContrariders();
+        listar(contrariderDAO, "Listado de contrariders");
         int id = leerEntero("\nIngresá el ID del contrarider a eliminar: ");
         contrariderDAO.eliminar(id);
     }
@@ -440,7 +469,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarProveedor();
-                case 2 -> consultarProveedores();
+                case 2 -> listar(proveedorDAO, "Listado de proveedores");
                 case 3 -> modificarProveedor();
                 case 4 -> eliminarProveedor();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -462,22 +491,9 @@ public class Main {
         proveedorDAO.insertar(nuevoProveedor);
     }
 
-    private static void consultarProveedores() {
-        System.out.println("\n--- Listado de proveedores ---");
-        List<Proveedor> proveedores = proveedorDAO.consultarTodos();
-
-        if (proveedores.isEmpty()) {
-            System.out.println("No hay proveedores registrados.");
-        } else {
-            for (Proveedor p : proveedores) {
-                System.out.println(p);
-            }
-        }
-    }
-
     private static void modificarProveedor() {
         System.out.println("\n--- Modificar proveedor ---");
-        consultarProveedores();
+        listar(proveedorDAO, "Listado de proveedores");
         int id = leerEntero("\nIngresá el ID del proveedor a modificar: ");
 
         String nombre = leerTexto("Nuevo nombre: ");
@@ -493,7 +509,7 @@ public class Main {
 
     private static void eliminarProveedor() {
         System.out.println("\n--- Eliminar proveedor ---");
-        consultarProveedores();
+        listar(proveedorDAO, "Listado de proveedores");
         int id = leerEntero("\nIngresá el ID del proveedor a eliminar: ");
         proveedorDAO.eliminar(id);
     }
@@ -515,7 +531,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarIntegrante();
-                case 2 -> consultarIntegrantes();
+                case 2 -> listar(integranteDAO, "Listado de integrantes");
                 case 3 -> modificarIntegrante();
                 case 4 -> eliminarIntegrante();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -538,22 +554,9 @@ public class Main {
         integranteDAO.insertar(nuevoIntegrante);
     }
 
-    private static void consultarIntegrantes() {
-        System.out.println("\n--- Listado de integrantes ---");
-        List<Integrante> integrantes = integranteDAO.consultarTodos();
-
-        if (integrantes.isEmpty()) {
-            System.out.println("No hay integrantes registrados.");
-        } else {
-            for (Integrante i : integrantes) {
-                System.out.println(i);
-            }
-        }
-    }
-
     private static void modificarIntegrante() {
         System.out.println("\n--- Modificar integrante ---");
-        consultarIntegrantes();
+        listar(integranteDAO, "Listado de integrantes");
         int id = leerEntero("\nIngresá el ID del integrante a modificar: ");
 
         String nombre = leerTexto("Nuevo nombre: ");
@@ -570,7 +573,7 @@ public class Main {
 
     private static void eliminarIntegrante() {
         System.out.println("\n--- Eliminar integrante ---");
-        consultarIntegrantes();
+        listar(integranteDAO, "Listado de integrantes");
         int id = leerEntero("\nIngresá el ID del integrante a eliminar: ");
         integranteDAO.eliminar(id);
     }
@@ -694,7 +697,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarHabitacion();
-                case 2 -> consultarHabitaciones();
+                case 2 -> listar(habitacionDAO, "Listado de habitaciones");
                 case 3 -> modificarHabitacion();
                 case 4 -> eliminarHabitacion();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -719,22 +722,9 @@ public class Main {
         habitacionDAO.insertar(nuevaHabitacion);
     }
 
-    private static void consultarHabitaciones() {
-        System.out.println("\n--- Listado de habitaciones ---");
-        List<Habitacion> habitaciones = habitacionDAO.consultarTodos();
-
-        if (habitaciones.isEmpty()) {
-            System.out.println("No hay habitaciones registradas.");
-        } else {
-            for (Habitacion h : habitaciones) {
-                System.out.println(h);
-            }
-        }
-    }
-
     private static void modificarHabitacion() {
         System.out.println("\n--- Modificar habitación ---");
-        consultarHabitaciones();
+        listar(habitacionDAO, "Listado de habitaciones");
         int id = leerEntero("\nIngresá el ID de la habitación a modificar: ");
 
         System.out.println("Shows disponibles:");
@@ -752,7 +742,7 @@ public class Main {
 
     private static void eliminarHabitacion() {
         System.out.println("\n--- Eliminar habitación ---");
-        consultarHabitaciones();
+        listar(habitacionDAO, "Listado de habitaciones");
         int id = leerEntero("\nIngresá el ID de la habitación a eliminar: ");
         habitacionDAO.eliminar(id);
     }
@@ -774,7 +764,7 @@ public class Main {
 
             switch (opcion) {
                 case 1 -> registrarDocumento();
-                case 2 -> consultarDocumentos();
+                case 2 -> listar(documentoIntegranteDAO, "Listado de documentos");
                 case 3 -> modificarDocumento();
                 case 4 -> eliminarDocumento();
                 case 5 -> System.out.println("Volviendo al menú principal...");
@@ -802,22 +792,9 @@ public class Main {
         documentoIntegranteDAO.insertar(nuevoDocumento);
     }
 
-    private static void consultarDocumentos() {
-        System.out.println("\n--- Listado de documentos ---");
-        List<DocumentoIntegrante> documentos = documentoIntegranteDAO.consultarTodos();
-
-        if (documentos.isEmpty()) {
-            System.out.println("No hay documentos registrados.");
-        } else {
-            for (DocumentoIntegrante d : documentos) {
-                System.out.println(d);
-            }
-        }
-    }
-
     private static void modificarDocumento() {
         System.out.println("\n--- Modificar documento ---");
-        consultarDocumentos();
+        listar(documentoIntegranteDAO, "Listado de documentos");
         int id = leerEntero("\nIngresá el ID del documento a modificar: ");
 
         System.out.println("Integrantes disponibles:");
@@ -838,7 +815,7 @@ public class Main {
 
     private static void eliminarDocumento() {
         System.out.println("\n--- Eliminar documento ---");
-        consultarDocumentos();
+        listar(documentoIntegranteDAO, "Listado de documentos");
         int id = leerEntero("\nIngresá el ID del documento a eliminar: ");
         documentoIntegranteDAO.eliminar(id);
     }

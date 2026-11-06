@@ -2,8 +2,7 @@ package com.ontour.dao;
 
 import com.ontour.conexion.ConexionBD;
 import com.ontour.modelo.Rider;
-import com.ontour.modelo.RiderHospitality;
-import com.ontour.modelo.RiderTecnico;
+import com.ontour.modelo.RiderFactory;
 
 import java.sql.*;
 import java.time.LocalDate;
@@ -129,7 +128,7 @@ public class RiderDAO implements CrudDAO<Rider> {
     }
 
     // Metodo auxiliar para convertir una fila del ResultSet en un objeto Rider.
-    // Segun la columna "tipo" devuelve una instancia de la subclase correspondiente,
+    // RiderFactory devuelve la subclase que corresponde a la columna "tipo",
     // por eso consultarTodos() termina devolviendo una lista con RiderTecnico y RiderHospitality mezclados.
     private Rider mapearRider(ResultSet rs) throws SQLException {
         int id = rs.getInt("id");
@@ -138,10 +137,6 @@ public class RiderDAO implements CrudDAO<Rider> {
         LocalDate fechaCarga = rs.getDate("fecha_carga").toLocalDate();
         String estado = rs.getString("estado");
 
-        return switch (tipo) {
-            case "tecnico" -> new RiderTecnico(id, showId, fechaCarga, estado);
-            case "hospitality" -> new RiderHospitality(id, showId, fechaCarga, estado);
-            default -> throw new SQLException("Tipo de rider desconocido en la base: " + tipo);
-        };
+        return RiderFactory.crear(id, showId, tipo, fechaCarga, estado);
     }
 }

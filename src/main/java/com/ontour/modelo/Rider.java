@@ -42,12 +42,15 @@ public abstract class Rider {
     public void setFechaCarga(LocalDate fechaCarga) { this.fechaCarga = fechaCarga; }
     public void setEstado(String estado) { this.estado = estado; }
 
+    // getTipo() y describirResponsable() son abstractos: al imprimir un Rider se ejecuta
+    // la version de RiderTecnico o RiderHospitality segun el objeto real (polimorfismo dinamico)
     @Override
     public String toString() {
         return "Id: " + id +
                 " | Show ID: " + showId +
                 " | Tipo: " + getTipo() +
                 " | Fecha de carga: " + fechaCarga +
-                " | Estado: " + estado;
+                " | Estado: " + estado +
+                "\n   Responsable: " + describirResponsable();
     }
 }
